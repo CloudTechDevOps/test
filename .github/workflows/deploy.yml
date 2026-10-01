@@ -14,7 +14,7 @@ concurrency:
 
 env:
   AWS_REGION: us-east-1
-  CLUSTER_NAME: kuberay-agent
+  CLUSTER_NAME: naresh
   ECR_REPO: kuberay-agent
   KUBERAY_VERSION: 1.2.2
 
