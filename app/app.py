@@ -1,25 +1,36 @@
 """AI agent served with Ray Serve on KubeRay, powered by Google Gemini."""
 import logging
 import os
+from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 from ray import serve
 
+from chat import MAX_HISTORY, build_contents
 from tools import TOOLS
 
 log = logging.getLogger("ray.serve")
 
 MODEL_ID = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 SYSTEM_PROMPT = "You are a helpful assistant. Use tools when they help answer accurately. Be concise."
+INDEX_HTML = Path(__file__).parent / "static" / "index.html"
 
 api = FastAPI(title="KubeRay Gemini Agent")
 
 
+class Message(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., max_length=4000)
+
+
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
+    history: list[Message] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):
@@ -44,6 +55,11 @@ class Agent:
             temperature=0.2,
             max_output_tokens=1024,
         )
+        self.index_html = INDEX_HTML.read_text(encoding="utf-8")
+
+    @api.get("/", response_class=HTMLResponse, include_in_schema=False)
+    def index(self):
+        return HTMLResponse(self.index_html)
 
     @api.get("/healthz")
     def health(self):
@@ -51,9 +67,13 @@ class Agent:
 
     @api.post("/chat", response_model=ChatResponse)
     def chat(self, req: ChatRequest):
+        if len(req.history) > MAX_HISTORY * 2:
+            raise HTTPException(status_code=422, detail="history too long")
+        history = [{"role": m.role, "content": m.content} for m in req.history]
+        contents = build_contents(history, req.message)
         try:
             resp = self.client.models.generate_content(
-                model=MODEL_ID, contents=req.message, config=self.config
+                model=MODEL_ID, contents=contents, config=self.config
             )
         except Exception:
             log.exception("gemini call failed")
