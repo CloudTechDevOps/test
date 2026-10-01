@@ -8,7 +8,7 @@
     encrypt      = true
     use_lockfile = true
   }
-}
+
 
 # Credentials come from the standard AWS chain (aws configure / AWS_ACCESS_KEY_ID +
 # AWS_SECRET_ACCESS_KEY env vars). Never put access keys in this file.
