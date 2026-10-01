@@ -81,6 +81,9 @@ jobs:
         run: |
           sed "s|__IMAGE__|${IMAGE}|g" k8s/rayservice.yaml | kubectl apply -f -
 
+      - name: Deploy public Service
+        run: kubectl apply -f k8s/service.yaml
+
       - name: Wait for RayService to be ready
         run: |
           for i in $(seq 1 60); do
@@ -92,3 +95,17 @@ jobs:
           done
           kubectl describe rayservice ai-agent
           exit 1
+
+      - name: Print public URL
+        run: |
+          for i in $(seq 1 40); do
+            host=$(kubectl get svc ai-agent-public -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+            if [ -n "$host" ]; then
+              echo "Public URL: http://$host"
+              echo "### Public URL: http://$host" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Load balancer hostname not assigned yet"
+          kubectl describe svc ai-agent-public

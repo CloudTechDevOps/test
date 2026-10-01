@@ -1,0 +1,24 @@
+# Public entry point for the Ray Serve app (FastAPI on port 8000).
+# Selects pods that KubeRay marks as ready to serve, so traffic follows the
+# active RayCluster during zero-downtime upgrades.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-agent-public
+  namespace: default
+  annotations:
+    # Network Load Balancer, internet-facing, placed in subnets tagged kubernetes.io/role/elb=1
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+spec:
+  type: LoadBalancer
+  selector:
+    ray.io/serve: "true"
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP
+  # /chat has no authentication. Restrict to trusted CIDRs, e.g. ["203.0.113.10/32"]
+  loadBalancerSourceRanges:
+    - 0.0.0.0/0

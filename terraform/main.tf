@@ -56,6 +56,11 @@ resource "aws_subnet" "public1" {
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "us-east-1a"
   map_public_ip_on_launch = true
+
+  tags = {
+    "kubernetes.io/role/elb"       = "1"
+    "kubernetes.io/cluster/naresh" = "shared"
+  }
 }
 
 resource "aws_subnet" "public2" {
@@ -64,6 +69,11 @@ resource "aws_subnet" "public2" {
   cidr_block              = "10.0.2.0/24"
   availability_zone       = "us-east-1b"
   map_public_ip_on_launch = true
+
+  tags = {
+    "kubernetes.io/role/elb"       = "1"
+    "kubernetes.io/cluster/naresh" = "shared"
+  }
 }
 
 resource "aws_subnet" "private1" {
@@ -277,8 +287,8 @@ resource "aws_eks_node_group" "node_group" {
     aws_subnet.private1.id,
     aws_subnet.private2.id
   ]
-  
-    
+
+
   instance_types = ["t3.medium"]
 
   scaling_config {
@@ -303,20 +313,20 @@ resource "aws_eks_node_group" "node_group" {
 
 
 resource "aws_instance" "eks" {
-    ami           = "ami-02dfbd4ff395f2a1b"
-    instance_type = "t2.medium"
-    subnet_id     = aws_subnet.public1.id
-    vpc_security_group_ids = [aws_security_group.allow_all.id]
-    root_block_device {
-      volume_size = "30"
-    }
-   
-    
-    tags = {
-        Name = "eks"
-    }
-    
-    user_data = <<-EOF
+  ami                    = "ami-02dfbd4ff395f2a1b"
+  instance_type          = "t2.medium"
+  subnet_id              = aws_subnet.public1.id
+  vpc_security_group_ids = [aws_security_group.allow_all.id]
+  root_block_device {
+    volume_size = "30"
+  }
+
+
+  tags = {
+    Name = "eks"
+  }
+
+  user_data = <<-EOF
                 #!/bin/bash
                 # Update system
                 yum update -y
@@ -339,7 +349,7 @@ resource "aws_instance" "eks" {
                 eksctl version || true
 
                 EOF
-  
+
 }
 ############################
 # EKS ADDONS
@@ -398,7 +408,7 @@ resource "aws_iam_role" "ebs_csi_role" {
         Service = "pods.eks.amazonaws.com"
       }
       Action = [
-        "sts:AssumeRole",            
+        "sts:AssumeRole",
         "sts:TagSession"
       ]
     }]
@@ -425,8 +435,8 @@ resource "aws_eks_pod_identity_association" "ebs_csi" {
 
 resource "aws_eks_addon" "ebs_csi" {
 
-  cluster_name = aws_eks_cluster.eks.name
-  addon_name   = "aws-ebs-csi-driver"
+  cluster_name                = aws_eks_cluster.eks.name
+  addon_name                  = "aws-ebs-csi-driver"
   resolve_conflicts_on_update = "OVERWRITE"
 
   depends_on = [
