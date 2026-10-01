@@ -1,12 +1,3 @@
-terraform {
-  required_version = ">= 1.10.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.70"
-    }
-  }
 
   # S3 remote state with native S3 locking (no DynamoDB needed, Terraform >= 1.10).
   # Values here cannot use variables - edit the bucket name to match terraform/bootstrap.
