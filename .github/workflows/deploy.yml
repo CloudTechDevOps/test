@@ -1,0 +1,94 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  CLUSTER_NAME: kuberay-agent
+  ECR_REPO: kuberay-agent
+  KUBERAY_VERSION: 1.2.2
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - working-directory: app
+        run: |
+          pip install -r requirements-dev.txt
+          pytest -q
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        id: image
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ github.sha }}
+        run: |
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "uri=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Configure kubectl
+        run: aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_REGION"
+
+      - name: Install / upgrade KubeRay operator
+        run: |
+          helm repo add kuberay https://ray-project.github.io/kuberay-helm/
+          helm repo update
+          helm upgrade --install kuberay-operator kuberay/kuberay-operator \
+            --version "$KUBERAY_VERSION" \
+            --namespace kuberay-system --create-namespace --wait
+
+      - name: Create / update Gemini secret
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          kubectl create secret generic gemini-secret \
+            --from-literal=api-key="$GEMINI_API_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy RayService
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: |
+          sed "s|__IMAGE__|${IMAGE}|g" k8s/rayservice.yaml | kubectl apply -f -
+
+      - name: Wait for RayService to be ready
+        run: |
+          for i in $(seq 1 60); do
+            status=$(kubectl get rayservice ai-agent -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
+            active=$(kubectl get rayservice ai-agent -o jsonpath='{.status.activeServiceStatus.applicationStatuses.agent.status}' 2>/dev/null || true)
+            echo "attempt $i: Ready=$status app=$active"
+            if [ "$status" = "True" ] || [ "$active" = "RUNNING" ]; then exit 0; fi
+            sleep 15
+          done
+          kubectl describe rayservice ai-agent
+          exit 1

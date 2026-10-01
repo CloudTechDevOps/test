@@ -1,0 +1,6 @@
+.git
+.github
+terraform
+k8s
+**/__pycache__
+**/.pytest_cache

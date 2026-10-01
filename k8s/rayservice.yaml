@@ -1,0 +1,53 @@
+# __IMAGE__ is replaced by the GitHub Actions deploy job.
+apiVersion: ray.io/v1
+kind: RayService
+metadata:
+  name: ai-agent
+  namespace: default
+spec:
+  serveConfigV2: |
+    applications:
+      - name: agent
+        import_path: app:app
+        route_prefix: /
+  rayClusterConfig:
+    rayVersion: "2.40.0"
+    headGroupSpec:
+      rayStartParams:
+        dashboard-host: "0.0.0.0"
+      template:
+        spec:
+          containers:
+            - name: ray-head
+              image: __IMAGE__
+              env:
+                - name: GEMINI_API_KEY
+                  valueFrom:
+                    secretKeyRef: { name: gemini-secret, key: api-key }
+              ports:
+                - { containerPort: 6379, name: gcs }
+                - { containerPort: 8265, name: dashboard }
+                - { containerPort: 10001, name: client }
+                - { containerPort: 8000, name: serve }
+              # Small requests so a zero-downtime upgrade (old + new cluster) fits on 2 nodes
+              resources:
+                requests: { cpu: "500m", memory: "2Gi" }
+                limits: { cpu: "1", memory: "2Gi" }
+    workerGroupSpecs:
+      - groupName: workers
+        replicas: 1
+        minReplicas: 1
+        maxReplicas: 2
+        rayStartParams: {}
+        template:
+          spec:
+            containers:
+              - name: ray-worker
+                image: __IMAGE__
+                env:
+                  - name: GEMINI_API_KEY
+                    valueFrom:
+                      secretKeyRef: { name: gemini-secret, key: api-key }
+                resources:
+                  requests: { cpu: "500m", memory: "2Gi" }
+                  limits: { cpu: "1", memory: "2Gi" }
