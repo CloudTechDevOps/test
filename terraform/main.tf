@@ -5,12 +5,19 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+  backend "s3" {
+    bucket       = "kuberay-agent-tfstate"
+    key          = "kuberay-agent/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
 }
 
 provider "aws" {
   region = "us-east-1"
 }
-
 ############################
 # VARIABLES
 ############################
