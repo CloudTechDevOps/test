@@ -11,13 +11,25 @@ from google.genai import types
 from pydantic import BaseModel, Field
 from ray import serve
 
-from chat import MAX_HISTORY, build_contents
-
 log = logging.getLogger("ray.serve")
 
 MODEL_ID = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 SYSTEM_PROMPT = "You are a helpful assistant. Be concise."
 INDEX_HTML = Path(__file__).parent / "static" / "index.html"
+MAX_HISTORY = 20
+MAX_TEXT_LEN = 4000
+_ROLES = {"user": "user", "assistant": "model"}
+
+
+def build_contents(history: list[dict], message: str) -> list[dict]:
+    contents = []
+    for item in history[-MAX_HISTORY:]:
+        role = _ROLES.get(item.get("role"))
+        text = (item.get("content") or "").strip()[:MAX_TEXT_LEN]
+        if role and text:
+            contents.append({"role": role, "parts": [{"text": text}]})
+    contents.append({"role": "user", "parts": [{"text": message[:MAX_TEXT_LEN]}]})
+    return contents
 
 api = FastAPI(title="KubeRay Gemini Agent")
 
