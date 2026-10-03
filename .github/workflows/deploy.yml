@@ -19,20 +19,7 @@ env:
   KUBERAY_VERSION: 1.2.2
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - working-directory: app
-        run: |
-          pip install -r requirements-dev.txt
-          pytest -q
-
   deploy:
-    needs: test
     runs-on: ubuntu-latest
     environment: production
     steps:

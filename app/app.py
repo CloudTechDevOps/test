@@ -12,12 +12,11 @@ from pydantic import BaseModel, Field
 from ray import serve
 
 from chat import MAX_HISTORY, build_contents
-from tools import TOOLS
 
 log = logging.getLogger("ray.serve")
 
 MODEL_ID = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-SYSTEM_PROMPT = "You are a helpful assistant. Use tools when they help answer accurately. Be concise."
+SYSTEM_PROMPT = "You are a helpful assistant. Be concise."
 INDEX_HTML = Path(__file__).parent / "static" / "index.html"
 
 api = FastAPI(title="KubeRay Gemini Agent")
@@ -51,7 +50,6 @@ class Agent:
         self.client = genai.Client(api_key=api_key)
         self.config = types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
-            tools=TOOLS,  # SDK runs the tool-calling loop automatically
             temperature=0.2,
             max_output_tokens=1024,
         )
