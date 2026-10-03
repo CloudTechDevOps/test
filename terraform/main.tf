@@ -246,6 +246,15 @@ resource "aws_iam_role_policy_attachment" "ecr" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
+
+###########
+# ECR
+###########
+
+resource "aws_ecr_repository" "app" {
+  name = "kuberay-agent"
+}
+
 ############################
 # EKS CLUSTER
 ############################
