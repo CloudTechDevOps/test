@@ -54,6 +54,9 @@ class ChatResponse(BaseModel):
     autoscaling_config={
         "min_replicas": 1,
         "max_replicas": 3,
+        "upscale_delay_s": 2,
+        # Keep replicas around for a little while before scaling down.
+        "downscale_delay_s": 10,
         "target_ongoing_requests": 1,
     },
     ray_actor_options={"num_cpus": 0.10},
