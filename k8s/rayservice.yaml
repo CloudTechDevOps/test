@@ -1,4 +1,3 @@
-# __IMAGE__ is replaced by the GitHub Actions deploy job.
 apiVersion: ray.io/v1
 kind: RayService
 metadata:
@@ -23,19 +22,30 @@ spec:
               env:
                 - name: GEMINI_API_KEY
                   valueFrom:
-                    secretKeyRef: { name: gemini-secret, key: api-key }
+                    secretKeyRef:
+                      name: gemini-secret
+                      key: api-key
               ports:
-                - { containerPort: 6379, name: gcs }
-                - { containerPort: 8265, name: dashboard }
-                - { containerPort: 10001, name: client }
-                - { containerPort: 8000, name: serve }
-              # Small requests so a zero-downtime upgrade (old + new cluster) fits on 2 nodes
+                - containerPort: 6379
+                  name: gcs
+                - containerPort: 8265
+                  name: dashboard
+                - containerPort: 10001
+                  name: client
+                - containerPort: 8000
+                  name: serve
               resources:
-                requests: { cpu: "500m", memory: "2Gi" }
-                limits: { cpu: "1", memory: "2Gi" }
+                requests:
+                  cpu: "500m"
+                  memory: "2Gi"
+                limits:
+                  cpu: "1"
+                  memory: "2Gi"
     workerGroupSpecs:
       - groupName: workers
+        # Initial worker pods
         replicas: 1
+        # KubeRay worker autoscaling
         minReplicas: 1
         maxReplicas: 2
         rayStartParams: {}
@@ -47,7 +57,13 @@ spec:
                 env:
                   - name: GEMINI_API_KEY
                     valueFrom:
-                      secretKeyRef: { name: gemini-secret, key: api-key }
+                      secretKeyRef:
+                        name: gemini-secret
+                        key: api-key
                 resources:
-                  requests: { cpu: "500m", memory: "2Gi" }
-                  limits: { cpu: "1", memory: "2Gi" }
+                  requests:
+                    cpu: "500m"
+                    memory: "2Gi"
+                  limits:
+                    cpu: "1"
+                    memory: "2Gi"
