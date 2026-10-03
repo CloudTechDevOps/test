@@ -31,6 +31,7 @@ def build_contents(history: list[dict], message: str) -> list[dict]:
     contents.append({"role": "user", "parts": [{"text": message[:MAX_TEXT_LEN]}]})
     return contents
 
+
 api = FastAPI(title="KubeRay Gemini Agent")
 
 
@@ -50,7 +51,11 @@ class ChatResponse(BaseModel):
 
 
 @serve.deployment(
-    autoscaling_config={"min_replicas": 1, "max_replicas": 3, "target_ongoing_requests": 5},
+    autoscaling_config={
+        "min_replicas": 1,
+        "max_replicas": 3,
+        "target_ongoing_requests": 5,
+    },
     ray_actor_options={"num_cpus": 0.25},
 )
 @serve.ingress(api)
@@ -58,14 +63,30 @@ class Agent:
     def __init__(self):
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
+            log.error("GEMINI_API_KEY is not set")
             raise RuntimeError("GEMINI_API_KEY is not set")
+
         self.client = genai.Client(api_key=api_key)
+
         self.config = types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
             temperature=0.2,
             max_output_tokens=1024,
         )
-        self.index_html = INDEX_HTML.read_text(encoding="utf-8")
+
+        if INDEX_HTML.exists():
+            self.index_html = INDEX_HTML.read_text(encoding="utf-8")
+        else:
+            self.index_html = """
+            <html>
+                <body>
+                    <h1>KubeRay Gemini Agent</h1>
+                    <p>Agent is running.</p>
+                </body>
+            </html>
+            """
+
+        log.info("Gemini Agent started successfully. Model=%s", MODEL_ID)
 
     @api.get("/", response_class=HTMLResponse, include_in_schema=False)
     def index(self):
@@ -75,20 +96,35 @@ class Agent:
     def health(self):
         return {"status": "ok", "model": MODEL_ID}
 
+    @api.get("/ready")
+    def ready(self):
+        return {"status": "ready", "model": MODEL_ID}
+
     @api.post("/chat", response_model=ChatResponse)
     def chat(self, req: ChatRequest):
         if len(req.history) > MAX_HISTORY * 2:
             raise HTTPException(status_code=422, detail="history too long")
+
         history = [{"role": m.role, "content": m.content} for m in req.history]
         contents = build_contents(history, req.message)
+
         try:
             resp = self.client.models.generate_content(
-                model=MODEL_ID, contents=contents, config=self.config
+                model=MODEL_ID,
+                contents=contents,
+                config=self.config,
             )
-        except Exception:
+        except Exception as e:
             log.exception("gemini call failed")
-            raise HTTPException(status_code=502, detail="model call failed")
-        return ChatResponse(answer=resp.text or "", model=MODEL_ID)
+            raise HTTPException(
+                status_code=502,
+                detail=f"Gemini model call failed: {str(e)}",
+            ) from e
+
+        return ChatResponse(
+            answer=resp.text or "",
+            model=MODEL_ID,
+        )
 
 
 app = Agent.bind()
