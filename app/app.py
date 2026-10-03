@@ -13,7 +13,7 @@ from ray import serve
 
 log = logging.getLogger("ray.serve")
 
-MODEL_ID = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL_ID = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
 SYSTEM_PROMPT = "You are a helpful assistant. Be concise."
 INDEX_HTML = Path(__file__).parent / "static" / "index.html"
 MAX_HISTORY = 20
