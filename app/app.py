@@ -54,9 +54,9 @@ class ChatResponse(BaseModel):
     autoscaling_config={
         "min_replicas": 1,
         "max_replicas": 3,
-        "target_ongoing_requests": 5,
+        "target_ongoing_requests": 1,
     },
-    ray_actor_options={"num_cpus": 0.25},
+    ray_actor_options={"num_cpus": 0.10},
 )
 @serve.ingress(api)
 class Agent:
