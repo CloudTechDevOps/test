@@ -7,7 +7,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket       = "kuberay-agent-tfstate"
+    bucket       = "kuberay-agent-tfstate-fde"
     key          = "kuberay-agent/terraform.tfstate"
     region       = "us-east-1"
     encrypt      = true
